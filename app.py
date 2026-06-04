@@ -55,8 +55,24 @@ except ImportError:
 # ==================== 0. 基础配置与中文字体修复 ====================
 st.set_page_config(page_title="砌体墙双板交互比对破坏预测系统", layout="wide", initial_sidebar_state="expanded")
 
-plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'Arial Unicode MS']  
-plt.rcParams['axes.unicode_minus'] = False    
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# 🎯 满血修复：动态检测并注册仓库根目录下的 SimHei 字体，完美兼容云端 Linux 与本地 Windows
+import matplotlib.font_manager as fm
+
+custom_font_path = os.path.join(BASE_DIR, "SimHei.ttf")
+if os.path.exists(custom_font_path):
+    try:
+        fm.fontManager.addfont(custom_font_path) # 强行向 Matplotlib 注册 SimHei.ttf
+        plt.rcParams['font.sans-serif'] = ['SimHei']
+        st.toast("已成功加载仓库自定义 SimHei 字体库！")
+    except Exception as e:
+        plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'Arial Unicode MS']
+else:
+    # 降级备用方案
+    plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'Arial Unicode MS']
+
+plt.rcParams['axes.unicode_minus'] = False 
 
 # 📌 路径资产精准锚定（已严格对齐最新物理路径：权重在scripts，数据集在dataset）
 # ==================== 📌 路径资产精准自适应锚定（兼容云端部署） ====================
@@ -908,9 +924,11 @@ st.markdown("---")
 st.subheader("选定的基准板情况")
 try:
     base_self_row = df[(df['待预测板编号'] == selected_base_id) & (df['基准板编号'] == selected_base_id)].iloc[0]
-    base_npz_path = base_self_row['矩阵压缩包绝对路径']
+    base_npz_path_raw = base_self_row['矩阵压缩包绝对路径']
+    base_npz_filename = os.path.basename(base_npz_path_raw.replace('\\', '/'))
+    actual_base_npz_path = os.path.join(DATASET_DIR, "processed_data", base_npz_filename)
     
-    base_data = np.load(base_npz_path)
+    base_data = np.load(actual_base_npz_path)
     base_wall = base_data['wall_mask']
     base_boundary = base_data['boundary_mask']
     base_crack_gt = base_data['crack_mask']
@@ -1017,8 +1035,14 @@ if st.button("启动预测", type="primary", use_container_width=True):
                     
                     if has_hole:
                         try:
+                            # ✅ 同样进行全自适应因果路径重塑
                             b_match_row = df[(df['待预测板编号'] == selected_base_id) & (df['基准板编号'] == selected_base_id)].iloc[0]
-                            b_npz_data = np.load(b_match_row['矩阵压缩包绝对路径'])
+                            b_npz_path_raw = b_match_row['矩阵压缩包绝对路径']
+
+                            b_npz_filename = os.path.basename(b_npz_path_raw.replace('\\', '/'))
+                            actual_b_npz_path = os.path.join(DATASET_DIR, "processed_data", b_npz_filename)
+
+                            b_npz_data = np.load(actual_b_npz_path)
                             runtime_base_crack_gt = b_npz_data['crack_mask']
                             pred_crack_binary = imitate_benchmark_crack_placement(pred_crack_binary, runtime_base_crack_gt, pred_boundary_mask, max_gap=6)
                         except Exception as b_err:
