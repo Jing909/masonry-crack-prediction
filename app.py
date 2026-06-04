@@ -61,6 +61,10 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 import matplotlib.font_manager as fm
 
 custom_font_path = os.path.join(BASE_DIR, "SimHei.ttf")
+# 在全局初始化区域定义一个强力指针
+GLOBAL_FONT_PROP = None
+if os.path.exists(custom_font_path):
+    GLOBAL_FONT_PROP = fm.FontProperties(fname=custom_font_path)
 if os.path.exists(custom_font_path):
     try:
         fm.fontManager.addfont(custom_font_path) # 强行向 Matplotlib 注册 SimHei.ttf
@@ -343,7 +347,7 @@ def plot_matrix_3d_voxels(matrix, title, wall_mask, wall_len, wall_hit, wall_thi
     ax.view_init(elev=25, azim=-55)
     ax.set_axis_off()  
     
-    ax.set_title(title, fontsize=9, pad=2)
+    ax.set_title(title, fontproperties=GLOBAL_FONT_PROP, fontsize=9, pad=2)
     return fig
 
 # ==================== 3. 几何与力学高级后处理算法中枢 ====================
@@ -691,7 +695,7 @@ def plot_matrix_heatmap(matrix, title, cmap="gray", vmin=0, vmax=1, hole_coords=
         ax.set_xlim(0, w_c)
         ax.set_ylim(h_c, 0)  
         ax.set_facecolor('white')  
-        ax.set_title(title, fontsize=10, pad=8)
+        ax.set_title(title, fontproperties=GLOBAL_FONT_PROP, fontsize=10, pad=8)
         ax.axis('off')
         
         if np.any(skel):
@@ -763,7 +767,7 @@ def plot_matrix_heatmap(matrix, title, cmap="gray", vmin=0, vmax=1, hole_coords=
             
             fig, ax = plt.subplots(figsize=(3.5, 3.5))
             ax.imshow(display_img, extent=[0, w_c, h_c, 0])
-            ax.set_title(title, fontsize=10, pad=8)
+            ax.set_title(title, fontproperties=GLOBAL_FONT_PROP, fontsize=10, pad=8)
             ax.axis('off')
             
             # 🧱 增加需求：在几何实体材质表面图的外边界（图像最外围）拉一圈灰黑色细线框起来
@@ -797,7 +801,7 @@ def plot_matrix_heatmap(matrix, title, cmap="gray", vmin=0, vmax=1, hole_coords=
 
     fig, ax = plt.subplots(figsize=(3.5, 3.5))
     sns.heatmap(matrix, ax=ax, cmap=cmap, cbar=False, xticklabels=False, yticklabels=False, vmin=vmin, vmax=vmax, square=True)
-    ax.set_title(title, fontsize=10, pad=8)
+    ax.set_title(title, fontproperties=GLOBAL_FONT_PROP, fontsize=10, pad=8)
     
     if hole_coords is not None:
         r_start, r_end, c_start, c_end = hole_coords
