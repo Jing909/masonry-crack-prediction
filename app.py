@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches  # 用于在开裂图上精确绘制红色洞口边框
 import seaborn as sns
 import time  # 用于控制动画播放的帧率间隔
-import streamlit as st
 
 # ==================== 🎨 全局无差别纯黑直角工业风 CSS 注入 ====================
 st.markdown(
@@ -73,38 +72,28 @@ if os.path.exists(custom_font_path):
 
 # 2. 如果本地字体缺失或加载失败，启动强力 Linux 原生防崩盘降级
 if GLOBAL_FONT_PROP is None:
-    # 检查 Linux 系统中是否存在刚刚安装的文泉驿正黑
     linux_wqy_path = "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"
     if os.path.exists(linux_wqy_path):
         GLOBAL_FONT_PROP = fm.FontProperties(fname=linux_wqy_path)
         plt.rcParams['font.sans-serif'] = ['WenQuanYi Zen Hei', 'SimHei', 'Microsoft YaHei']
     else:
-        # 最后的无伤兜底
         plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'Arial Unicode MS']
 
 plt.rcParams['axes.unicode_minus'] = False
 
-# 📌 路径资产精准锚定（已严格对齐最新物理路径：权重在scripts，数据集在dataset）
-# ==================== 📌 路径资产精准自适应锚定（兼容云端部署） ====================
-# 获取当前脚本运行的绝对路径
+# 📌 路径资产精准自适应锚定
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# 自动拼接相对路径
 SCRIPTS_DIR = os.path.join(BASE_DIR, "scripts") 
 DATASET_DIR = os.path.join(BASE_DIR, "dataset")
 
-# 1. 数据集相关路径
 MANIFEST_PATH = os.path.join(DATASET_DIR, "processed_manifest_clean.xlsx")
 STEP3_DATA_DIR = os.path.join(DATASET_DIR, "processed_data_step3")
-# 📌 精准注册墙体背景贴图物理路径
 WALL_TEXTURE_PATH = os.path.join(DATASET_DIR, "board.png")
 
-# 2. 深度学习权重路径
 MODEL_ONE_PATH = os.path.join(SCRIPTS_DIR, "best_model_one.pth")
 MODEL_TWO_PATH = os.path.join(SCRIPTS_DIR, "best_model_two.pth")
 MODEL_THREE_PATH = os.path.join(SCRIPTS_DIR, "best_step3_model.pth")
 
-# 🛡️【核心防御性初始化】：在脚本全局最顶部对核心标量进行初始化，彻底杜绝 any 生命周期重运行下的 NameError 隐患！
 base_load_gt = 0.0
 
 # ==================== 1. 严格同步后端的满血版网络声明 ====================
@@ -219,13 +208,10 @@ class MasonryLoadRegressor(nn.Module):
         E_fusion = torch.cat([E_visual, E_scalar], dim=-1)  
         return self.regressor_head(E_fusion).squeeze(-1)
 
-# 🌟 核心同步升级：完美对齐 train_step3.py 的轻量级 GRU 控噪网络架构
-# 🌟 核心同步升级：完美对齐 train_step3v2.py 的 GroupNorm + 64维脑容量网络架构
 class SpatialTemporalInflectionNet(nn.Module):
-    def __init__(self, static_feature_dim=25, hidden_dim=64): # 👈 默认 hidden_dim 恢复至 64
+    def __init__(self, static_feature_dim=25, hidden_dim=64): 
         super(SpatialTemporalInflectionNet, self).__init__()
         
-        # 空间拓扑改用 GroupNorm，自适应池化同步升级为 (4, 4)
         self.spatial_cnn = nn.Sequential(
             nn.Conv2d(1, 16, kernel_size=3, stride=1, padding=1),
             nn.GroupNorm(4, 16), 
@@ -233,13 +219,11 @@ class SpatialTemporalInflectionNet(nn.Module):
             nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1),
             nn.GroupNorm(8, 32), 
             nn.ReLU(),
-            nn.AdaptiveAvgPool2d((4, 4)) # 🌟 空间特征凝聚为 [32, 4, 4] = 512 维
+            nn.AdaptiveAvgPool2d((4, 4)) 
         )
         
-        # 时序输入维度严格对齐 512
         self.temporal_gru = nn.GRU(input_size=512, hidden_size=hidden_dim, num_layers=1, batch_first=True)
         
-        # 融合回归头 Dropout 降低至 0.1 释放拟合性能
         self.regression_head = nn.Sequential(
             nn.Linear(hidden_dim + static_feature_dim, 32),
             nn.LayerNorm(32),
@@ -279,7 +263,6 @@ def bootstrap_system_environment():
     model_two = MasonryLoadRegressor(visual_bottleneck_dim=8)
     model_three = SpatialTemporalInflectionNet(static_feature_dim=25, hidden_dim=64)
     
-    # 深度学习权重强加载与拦截核验
     if os.path.exists(MODEL_ONE_PATH):
         model_one.load_state_dict(torch.load(MODEL_ONE_PATH, map_location='cpu'))
     else:
@@ -307,9 +290,7 @@ except Exception as e:
     st.error(f"系统启动时触发安全拦截: {str(e)}")
     st.stop()
 
-# 🚀【自适应物理几何 3D 渲染器】
 def plot_matrix_3d_voxels(matrix, title, wall_mask, wall_len, wall_hit, wall_thick, crop_bounds=None):
-    import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d import Axes3D
     
     if crop_bounds is not None:
@@ -318,7 +299,6 @@ def plot_matrix_3d_voxels(matrix, title, wall_mask, wall_len, wall_hit, wall_thi
         wall_mask = wall_mask[r_start:r_end, c_start:c_end]
         
     H, W = matrix.shape
-    
     if int(wall_thick) == 180:
         D = 5  
         is_cavity_wall = True
@@ -332,7 +312,6 @@ def plot_matrix_3d_voxels(matrix, title, wall_mask, wall_len, wall_hit, wall_thi
     for d in range(D):
         if is_cavity_wall and d == 2:
             continue 
-            
         filled[:, :, d] = (wall_mask > 0)
         colors[filled[:, :, d], d] = '#abcdefcc' 
         
@@ -340,7 +319,6 @@ def plot_matrix_3d_voxels(matrix, title, wall_mask, wall_len, wall_hit, wall_thi
     for d in range(D):
         if is_cavity_wall and d == 2: 
             continue  
-            
         filled[crack_mask, d] = True
         colors[crack_mask, d] = '#1c1c1c'
         
@@ -349,10 +327,8 @@ def plot_matrix_3d_voxels(matrix, title, wall_mask, wall_len, wall_hit, wall_thi
     
     ax.voxels(filled, facecolors=colors, edgecolors='#ffffff', linewidth=0.2)
     ax.set_box_aspect((wall_hit, wall_len, wall_thick))
-    
     ax.view_init(elev=25, azim=-55)
     ax.set_axis_off()  
-    
     ax.set_title(title, fontproperties=GLOBAL_FONT_PROP, fontsize=9, pad=2)
     return fig
 
@@ -414,12 +390,9 @@ def bridge_internal_broken_cracks(skeleton_binary, max_gap=4):
 def imitate_benchmark_crack_placement(skeleton_binary, base_crack_gt, boundary_mask, max_gap=7):
     mask = skeleton_binary.copy().astype(np.uint8)
     base_mask = (base_crack_gt > 0.5).astype(np.uint8)
-    
-    if np.sum(mask) == 0:
-        return mask.astype(np.float32)
+    if np.sum(mask) == 0: return mask.astype(np.float32)
         
     boundary_pts = np.argwhere(boundary_mask > 0) if np.sum(boundary_mask) > 0 else None
-    
     num_pred, labels_pred, stats_pred, centroids_pred = cv2.connectedComponentsWithStats(mask, connectivity=8)
     num_base, labels_base, stats_base, centroids_base = cv2.connectedComponentsWithStats(base_mask, connectivity=8)
     
@@ -429,14 +402,12 @@ def imitate_benchmark_crack_placement(skeleton_binary, base_crack_gt, boundary_m
     for p_label in range(1, num_pred):
         p_pts = np.argwhere(labels_pred == p_label)
         p_centroid = centroids_pred[p_label]
-        
         near_hole = False
         dr_hole, dc_hole = 0, 0
         if boundary_pts is not None:
             dists_to_hole = np.sum((p_pts[:, None, :] - boundary_pts[None, :, :]) ** 2, axis=-1)
             min_hole_idx = np.unravel_index(np.argmin(dists_to_hole), dists_to_hole.shape)
             min_hole_dist = np.sqrt(dists_to_hole[min_hole_idx])
-            
             if min_hole_dist <= max_gap:
                 near_hole = True
                 p_anchor_hole = p_pts[min_hole_idx[0]]
@@ -466,18 +437,14 @@ def imitate_benchmark_crack_placement(skeleton_binary, base_crack_gt, boundary_m
                 dr_bench = b_anchor_bench[0] - p_anchor_bench[0]
                 dc_bench = b_anchor_bench[1] - p_anchor_bench[1]
 
-        if near_hole:
-            dr, dc = dr_hole, dc_hole
-        elif has_bench_match:
-            dr, dc = dr_bench, dc_bench
-        else:
-            dr, dc = 0, 0
+        if near_hole: dr, dc = dr_hole, dc_hole
+        elif has_bench_match: dr, dc = dr_bench, dc_bench
+        else: dr, dc = 0, 0
             
         for cr, cc in p_pts:
             nr, nc = cr + dr, cc + dc
             if 0 <= nr < mask.shape[0] and 0 <= nc < mask.shape[1]:
                 new_mask[nr, nc] = 1
-                
     return new_mask.astype(np.float32)
 
 def bridge_cracks_to_wall_boundary(crack_binary, crop_bounds, max_gap=4):
@@ -514,8 +481,7 @@ def bridge_cracks_to_wall_boundary(crack_binary, crop_bounds, max_gap=4):
 def bridge_directional_extension_segments(skeleton_binary, boundary_mask, max_gap=22):
     mask = skeleton_binary.copy().astype(np.uint8)
     num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(mask, connectivity=8)
-    if num_labels <= 2:
-        return mask.astype(np.float32)
+    if num_labels <= 2: return mask.astype(np.float32)
         
     new_mask = mask.copy()
     hole_associated_labels = []
@@ -527,12 +493,10 @@ def bridge_directional_extension_segments(skeleton_binary, boundary_mask, max_ga
                 break
                 
     kernel = np.array([[1, 1, 1], [1, 10, 1], [1, 1, 1]], dtype=np.float32)
-    
     for h_label in hole_associated_labels:
         h_pts = np.argwhere(labels == h_label)
         neighbor_count = cv2.filter2D((labels == h_label).astype(np.uint8), -1, kernel, borderType=cv2.BORDER_CONSTANT)
         h_eps = np.argwhere((labels == h_label) & (neighbor_count == 11))
-        
         if len(h_eps) == 0: h_eps = h_pts
             
         boundary_pts = np.argwhere(boundary_mask > 0)
@@ -547,7 +511,6 @@ def bridge_directional_extension_segments(skeleton_binary, boundary_mask, max_ga
                 
         if outer_ep is None: continue
         curr_r, curr_c = outer_ep
-        
         dists_to_ep = np.sum((h_pts - np.array([curr_r, curr_c]))**2, axis=1)
         inner_indices = np.where((dists_to_ep > 0) & (dists_to_ep <= 16))[0]
         if len(inner_indices) > 0:
@@ -568,14 +531,12 @@ def bridge_directional_extension_segments(skeleton_binary, boundary_mask, max_ga
             
             for j in range(1, current_num):
                 j_pts = np.argwhere(current_labels == j)
-                if any((jr == curr_r and jc == curr_c) for jr, jc in j_pts):
-                    continue
+                if any((jr == curr_r and jc == curr_c) for jr, jc in j_pts): continue
                     
                 for jr, jc in j_pts:
                     v_r = jr - curr_r
                     v_c = jc - curr_c
                     dist = np.sqrt(v_r**2 + v_c**2)
-                    
                     if dist <= max_gap:
                         cos_angle = (v_r * dr + v_c * dc) / (dist + 1e-6)
                         if cos_angle > 0.707:  
@@ -587,25 +548,19 @@ def bridge_directional_extension_segments(skeleton_binary, boundary_mask, max_ga
             if best_target_pt is not None:
                 jr, jc = best_target_pt
                 cv2.line(new_mask, (int(curr_c), int(curr_r)), (int(jc), int(jr)), 1, 1)
-                
                 tgt_pts = np.argwhere(current_labels == best_target_label)
                 proj_distances = [(ptr - curr_r) * dr + (ptc - curr_c) * dc for ptr, ptc in tgt_pts]
                 furthest_idx = np.argmax(proj_distances)
-                
                 new_r, new_c = tgt_pts[furthest_idx]
                 new_dr, new_dc = new_r - curr_r, new_c - curr_c
                 new_norm = np.sqrt(new_dr**2 + new_dc**2)
-                if new_norm > 0:
-                    dr, dc = new_dr / new_norm, new_dc / new_norm
-                    
+                if new_norm > 0: dr, dc = new_dr / new_norm, new_dc / new_norm
                 curr_r, curr_c = new_r, new_c
             else:
                 break
-                
     return new_mask.astype(np.float32)
 
 def get_boundary_crack_seeds(crack_binary, boundary_mask, crop_bounds, has_hole):
-    H, W = crack_binary.shape
     seeds = []
     r_start, r_end, c_start, c_end = crop_bounds
     crack_pts = np.argwhere(crack_binary > 0)
@@ -663,22 +618,20 @@ def generate_crack_evolution_frames(crack_mask, seeds, num_frames=30):
         frames.append(frame)
     return frames
 
-# 🌟【力学仿真级引擎高级重构】：加入多轨因果机制开关 dilate_first，实现黑格子先扩一圈再连线
-def plot_matrix_heatmap(matrix, title, cmap="gray", vmin=0, vmax=1, hole_coords=None, crop_bounds=None, texture_path=None, texture_scale=1.0, dilate_first=False):
-    
+# 🌟【力学仿真级引擎高级重构】：高级制图函数（新增 hole_facecolor 参数与 zorder=10 强行覆盖机制）
+def plot_matrix_heatmap(matrix, title, cmap="gray", vmin=0, vmax=1, hole_coords=None, crop_bounds=None, texture_path=None, texture_scale=1.0, dilate_first=False, hole_facecolor='none'):
     edge_color = 'red' if cmap == "gray_r" else '#444444'
     line_width = 2.0 if cmap == "gray_r" else 1.0
 
     # 🚀【精准矢量中点连线引擎】
     if cmap == "gray_r":
         binary = (matrix > 0.5).astype(np.uint8)  
-        
-        # 🎯 如果开启了先扩一圈开关，调用 OpenCV 3x3 矩形核向周围膨胀一圈像素
         if dilate_first and np.any(binary):
             kernel = np.ones((3, 3), dtype=np.uint8)
             binary = cv2.dilate(binary, kernel, iterations=1)
             
-        fig, ax = plt.subplots(figsize=(3.5, 3.5))
+        fig, _ax = plt.subplots(figsize=(3.5, 3.5))
+        ax = _ax
         
         if crop_bounds is not None:
             r_start, r_end, c_start, c_end = crop_bounds
@@ -708,7 +661,6 @@ def plot_matrix_heatmap(matrix, title, cmap="gray", vmin=0, vmax=1, hole_coords=
             rows, cols = np.where(skel == 1)
             pts = set(zip(rows, cols))
             drawn_nodes = set()
-            
             for r, c in pts:
                 for dr, dc in [(0, 1), (1, 0), (1, 1), (1, -1)]:  
                     nr, nc = r + dr, c + dc
@@ -716,31 +668,23 @@ def plot_matrix_heatmap(matrix, title, cmap="gray", vmin=0, vmax=1, hole_coords=
                         ax.plot([c + 0.5, nc + 0.5], [r + 0.5, nr + 0.5], color='black', linewidth=1.2, solid_capstyle='round')
                         drawn_nodes.add((r, c))
                         drawn_nodes.add((nr, nc))
-            
             for r, c in pts:
                 if (r, c) not in drawn_nodes:
                     ax.plot(c + 0.5, r + 0.5, marker='o', color='black', markersize=1.5)
                     
         if hole_coords is not None:
             r_start_h, r_end_h, c_start_h, c_end_h = hole_coords
-            # rect = patches.Rectangle(
-            #     (c_start_h, r_start_h),            
-            #     c_end_h - c_start_h,               
-            #     r_end_h - r_start_h,               
-            #     linewidth=2.0,                 
-            #     edgecolor='red',               
-            #     facecolor='none'               
-            # )
+            # 🛠️ 修改核心：引入 zorder=10，强制将图层移至最上面，并关联自定背景色 hole_facecolor
             rect = patches.Rectangle(
-                (c_start_h - 0.5, r_start_h - 0.5),            
-                (c_end_h - c_start_h) + 1.0,               
-                (r_end_h - r_start_h) + 1.0,               
+                (c_start_h, r_start_h),            
+                c_end_h - c_start_h,               
+                r_end_h - r_start_h,               
                 linewidth=2.0,                 
                 edgecolor='red',               
-                facecolor='none'               
+                facecolor=hole_facecolor,
+                zorder=10               
             )
             ax.add_patch(rect)
-            
         ax.set_aspect('equal')
         return fig
 
@@ -784,11 +728,10 @@ def plot_matrix_heatmap(matrix, title, cmap="gray", vmin=0, vmax=1, hole_coords=
             ax.set_title(title, fontproperties=GLOBAL_FONT_PROP, fontsize=10, pad=8)
             ax.axis('off')
             
-            # 🧱 增加需求：在几何实体材质表面图的外边界（图像最外围）拉一圈灰黑色细线框起来
             rect_outer = patches.Rectangle(
                 (0, 0), w_c, h_c,
-                linewidth=1.0,                 # 1像素细线
-                edgecolor='#444444',           # 工业灰黑
+                linewidth=1.0,                 
+                edgecolor='#444444',           
                 facecolor='none'               
             )
             ax.add_patch(rect_outer)
@@ -819,13 +762,15 @@ def plot_matrix_heatmap(matrix, title, cmap="gray", vmin=0, vmax=1, hole_coords=
     
     if hole_coords is not None:
         r_start, r_end, c_start, c_end = hole_coords
+        # 🛠️ 修改核心：引入 zorder=10，通用热力图绘制分支也做同步升级
         rect = patches.Rectangle(
             (c_start, r_start),            
             c_end - c_start,               
             r_end - r_start,               
             linewidth=2.0,                 
             edgecolor='red',               
-            facecolor='none'               
+            facecolor=hole_facecolor,
+            zorder=10               
         )
         ax.add_patch(rect)
     return fig
@@ -899,13 +844,11 @@ with st.sidebar:
         b_left = st.selectbox("左边界约束类型", options=['BI', 'SS', 'FE'], index=1) 
         b_right = st.selectbox("右边界约束类型", options=['BI', 'SS', 'FE'], index=1) 
 
-    # 🌟【满血修复拦截】：补齐不小心漏掉的材料配置面板，彻底斩断 NameError 隐患！
     with st.expander("材料属性配置"):
         wall_mat = st.selectbox("砌块材料类型", options=['B级面砖', '密实混凝土', 'A级工程砖'], index=0)
         wall_mortar = st.selectbox("砂浆配比比例", options=['1:01:06', '1:01:16', '1:1/2:4'], index=0)
         wall_asphalt = st.selectbox("是否存在底板沥青防潮层", options=['无', '有'], index=0)
 
-    # 后台默默将纹理缩放比例固定在 0.10，不再创建多余组件和抛出解释文案，维护学术界面的精简性
     texture_scale = 0.10
 
 st.sidebar.header("选择基准板")
@@ -980,8 +923,9 @@ try:
             )
             
     with img_cols[1]: 
+            # 🛠️ 修改位置：选定基准板情况的第二张矩阵（真实试验开裂模式图）增加 hole_facecolor='white'，强制移至顶层渲染
             st.pyplot(
-                plot_matrix_heatmap(base_crack_gt, "2. 真实试验开裂模式图", cmap="gray_r", hole_coords=base_hole_coords, crop_bounds=base_crop_bounds, dilate_first=False), 
+                plot_matrix_heatmap(base_crack_gt, "2. 真实试验开裂模式图", cmap="gray_r", hole_coords=base_hole_coords, crop_bounds=base_crop_bounds, dilate_first=False, hole_facecolor='white'), 
                 use_container_width=True
             )
 
@@ -1053,13 +997,10 @@ if st.button("启动预测", type="primary", use_container_width=True):
                     
                     if has_hole:
                         try:
-                            # ✅ 同样进行全自适应因果路径重塑
                             b_match_row = df[(df['待预测板编号'] == selected_base_id) & (df['基准板编号'] == selected_base_id)].iloc[0]
                             b_npz_path_raw = b_match_row['矩阵压缩包绝对路径']
-
                             b_npz_filename = os.path.basename(b_npz_path_raw.replace('\\', '/'))
                             actual_b_npz_path = os.path.join(DATASET_DIR, "processed_data", b_npz_filename)
-
                             b_npz_data = np.load(actual_b_npz_path)
                             runtime_base_crack_gt = b_npz_data['crack_mask']
                             pred_crack_binary = imitate_benchmark_crack_placement(pred_crack_binary, runtime_base_crack_gt, pred_boundary_mask, max_gap=6)
@@ -1169,7 +1110,6 @@ if st.session_state.get('has_predicted', False):
             if st.session_state.get('step3_available', False):
                 p_val = st.session_state.pred_p_val  
                 fail_load = st.session_state.predicted_load_val  
-                
                 current_load = p_val + (fail_load - p_val) * (idx / (total_frames - 1))
                 status_text = "外部横向匀布荷载加载中"
             else:
@@ -1188,7 +1128,6 @@ if st.session_state.get('has_predicted', False):
             )
             anim_placeholder.pyplot(fig_frame)
             plt.close(fig_frame)  
-            
             progress_bar.progress((idx + 1) / total_frames)
             time.sleep(0.01)      
         st.rerun() 
