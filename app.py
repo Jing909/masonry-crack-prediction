@@ -56,27 +56,33 @@ except ImportError:
 st.set_page_config(page_title="砌体墙双板交互比对破坏预测系统", layout="wide", initial_sidebar_state="expanded")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# 🎯 满血修复：动态检测并注册仓库根目录下的 SimHei 字体，完美兼容云端 Linux 与本地 Windows
 import matplotlib.font_manager as fm
 
 custom_font_path = os.path.join(BASE_DIR, "SimHei.ttf")
-# 在全局初始化区域定义一个强力指针
 GLOBAL_FONT_PROP = None
-if os.path.exists(custom_font_path):
-    GLOBAL_FONT_PROP = fm.FontProperties(fname=custom_font_path)
+
+# 1. 尝试注册本地打包的 SimHei 字体
 if os.path.exists(custom_font_path):
     try:
-        fm.fontManager.addfont(custom_font_path) # 强行向 Matplotlib 注册 SimHei.ttf
-        plt.rcParams['font.sans-serif'] = ['SimHei']
+        fm.fontManager.addfont(custom_font_path)
+        GLOBAL_FONT_PROP = fm.FontProperties(fname=custom_font_path)
+        plt.rcParams['font.sans-serif'] = ['SimHei', 'WenQuanYi Zen Hei', 'Microsoft YaHei', 'Arial Unicode MS']
         st.toast("已成功加载仓库自定义 SimHei 字体库！")
     except Exception as e:
-        plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'Arial Unicode MS']
-else:
-    # 降级备用方案
-    plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'Arial Unicode MS']
+        pass
 
-plt.rcParams['axes.unicode_minus'] = False 
+# 2. 如果本地字体缺失或加载失败，启动强力 Linux 原生防崩盘降级
+if GLOBAL_FONT_PROP is None:
+    # 检查 Linux 系统中是否存在刚刚安装的文泉驿正黑
+    linux_wqy_path = "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"
+    if os.path.exists(linux_wqy_path):
+        GLOBAL_FONT_PROP = fm.FontProperties(fname=linux_wqy_path)
+        plt.rcParams['font.sans-serif'] = ['WenQuanYi Zen Hei', 'SimHei', 'Microsoft YaHei']
+    else:
+        # 最后的无伤兜底
+        plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'Arial Unicode MS']
+
+plt.rcParams['axes.unicode_minus'] = False
 
 # 📌 路径资产精准锚定（已严格对齐最新物理路径：权重在scripts，数据集在dataset）
 # ==================== 📌 路径资产精准自适应锚定（兼容云端部署） ====================
