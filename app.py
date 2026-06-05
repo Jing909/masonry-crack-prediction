@@ -619,19 +619,20 @@ def generate_crack_evolution_frames(crack_mask, seeds, num_frames=30):
     return frames
 
 # 🌟【力学仿真级引擎高级重构】：高级制图函数（新增 hole_facecolor 参数与 zorder=10 强行覆盖机制）
-def plot_matrix_heatmap(matrix, title, cmap="gray", vmin=0, vmax=1, hole_coords=None, crop_bounds=None, texture_path=None, texture_scale=1.0, dilate_first=False, hole_facecolor='none'):
+def plot_matrix_heatmap(matrix, title, cmap="gray", vmin=0, vmax=1, hole_coords=None, crop_bounds=None, texture_path=None, texture_scale=1.0, dilate_first=False, hole_facecolor='none', use_mst=False):
     edge_color = 'red' if cmap == "gray_r" else '#444444'
     line_width = 2.0 if cmap == "gray_r" else 1.0
 
     # 🚀【精准矢量中点连线引擎】
     if cmap == "gray_r":
         binary = (matrix > 0.5).astype(np.uint8)  
+        
+        # 如果开启了先扩一圈开关
         if dilate_first and np.any(binary):
             kernel = np.ones((3, 3), dtype=np.uint8)
             binary = cv2.dilate(binary, kernel, iterations=1)
             
-        fig, _ax = plt.subplots(figsize=(3.5, 3.5))
-        ax = _ax
+        fig, ax = plt.subplots(figsize=(3.5, 3.5))
         
         if crop_bounds is not None:
             r_start, r_end, c_start, c_end = crop_bounds
@@ -654,39 +655,121 @@ def plot_matrix_heatmap(matrix, title, cmap="gray", vmin=0, vmax=1, hole_coords=
         ax.set_xlim(0, w_c)
         ax.set_ylim(h_c, 0)  
         ax.set_facecolor('white')  
-        ax.set_title(title, fontproperties=GLOBAL_FONT_PROP, fontsize=10, pad=8)
+        if GLOBAL_FONT_PROP:
+            ax.set_title(title, fontproperties=GLOBAL_FONT_PROP, fontsize=10, pad=8)
+        else:
+            ax.set_title(title, fontsize=10, pad=8)
         ax.axis('off')
         
         if np.any(skel):
             rows, cols = np.where(skel == 1)
-            pts = set(zip(rows, cols))
+            pts = list(zip(rows, cols))
             drawn_nodes = set()
-            for r, c in pts:
-                for dr, dc in [(0, 1), (1, 0), (1, 1), (1, -1)]:  
-                    nr, nc = r + dr, c + dc
-                    if (nr, nc) in pts:
-                        ax.plot([c + 0.5, nc + 0.5], [r + 0.5, nr + 0.5], color='black', linewidth=1.2, solid_capstyle='round')
-                        drawn_nodes.add((r, c))
-                        drawn_nodes.add((nr, nc))
+            
+            if use_mst:
+                # 🌲【最小生成树/森林去环引警】
+                node_to_idx = {node: i for i, node in enumerate(pts)}
+                num_nodes = len(pts)
+                edges = []
+                
+                # 建立 8 邻域边集
+                for r, c in pts:
+                    u = node_to_idx[(r, c)]
+                    for dr, dc in [(0, 1), (1, 0), (1, 1), (1, -1)]:  
+                        nr, nc = r + dr, c + dc
+                        if (nr, nc) in node_to_idx:
+                            v = node_to_idx[(nr, nc)]
+                            if u < v:  # 避免重复添加边
+                                weight = np.sqrt(dr**2 + dc**2)  # 直线权重1.0，斜线权重约1.414，优先走直线
+                                edges.append((weight, u, v))
+                
+                # 按照权重从小到大排序（Kruskal 核心步骤）
+                edges.sort(key=lambda x: x[0])
+                
+                # 并查集初始化
+                parent = list(range(num_nodes))
+                def find(i):
+                    root = i
+                    while root != parent[root]:
+                        root = parent[root]
+                    curr = i
+                    while curr != root:  # 路径压缩
+                        nxt = parent[curr]
+                        parent[curr] = root
+                        curr = nxt
+                    return root
+                
+                # 择优合入无环树边
+                for weight, u, v in edges:
+                    root_u = find(u)
+                    root_v = find(v)
+                    if root_u != root_v:
+                        parent[root_u] = root_v
+                        r1, c1 = pts[u]
+                        r2, c2 = pts[v]
+                        ax.plot([c1 + 0.5, c2 + 0.5], [r1 + 0.5, r2 + 0.5], color='black', linewidth=1.2, solid_capstyle='round')
+                        drawn_nodes.add(pts[u])
+                        drawn_nodes.add(pts[v])
+            else:
+                # 🔄 原传统 8 邻域直接连线逻辑（保留向下兼容）
+                pts_set = set(pts)
+                for r, c in pts_set:
+                    for dr, dc in [(0, 1), (1, 0), (1, 1), (1, -1)]:  
+                        nr, nc = r + dr, c + dc
+                        if (nr, nc) in pts_set:
+                            ax.plot([c + 0.5, nc + 0.5], [r + 0.5, nr + 0.5], color='black', linewidth=1.2, solid_capstyle='round')
+                            drawn_nodes.add((r, c))
+                            drawn_nodes.add((nr, nc))
+            
+            # 补齐未连线的孤立单像素噪声点
             for r, c in pts:
                 if (r, c) not in drawn_nodes:
                     ax.plot(c + 0.5, r + 0.5, marker='o', color='black', markersize=1.5)
                     
         if hole_coords is not None:
             r_start_h, r_end_h, c_start_h, c_end_h = hole_coords
-            # 🛠️ 修改核心：引入 zorder=10，强制将图层移至最上面，并关联自定背景色 hole_facecolor
             rect = patches.Rectangle(
-                (c_start_h - 0.5, r_start_h - 0.5),  # 👈 坐标向左上角移动了 0.5
-                (c_end_h - c_start_h) + 1.0,         # 👈 宽度加了 1.0
-                (r_end_h - r_start_h) + 1.0,         # 👈 高度加了 1.0
+                (c_start_h - 0.5, r_start_h - 0.5),            
+                (c_end_h - c_start_h) + 1.0,               
+                (r_end_h - r_start_h) + 1.0,               
                 linewidth=1.0,                 
                 edgecolor='red',               
                 facecolor=hole_facecolor,
                 zorder=10
             )
             ax.add_patch(rect)
+            
         ax.set_aspect('equal')
         return fig
+
+    # 后续非 gray_r 的热力图渲染逻辑保持不变...
+    if crop_bounds is not None:
+        r_start, r_end, c_start, c_end = crop_bounds
+        matrix = matrix[r_start:r_end, c_start:c_end]
+        if hole_coords is not None:
+            hr_start, hr_end, hc_start, hc_end = hole_coords
+            hole_coords = (hr_start - r_start, hr_end - r_start, hc_start - c_start, hc_end - c_start)
+
+    fig, ax = plt.subplots(figsize=(3.5, 3.5))
+    sns.heatmap(matrix, ax=ax, cmap=cmap, cbar=False, xticklabels=False, yticklabels=False, vmin=vmin, vmax=vmax, square=True)
+    if GLOBAL_FONT_PROP:
+        ax.set_title(title, fontproperties=GLOBAL_FONT_PROP, fontsize=10, pad=8)
+    else:
+        ax.set_title(title, fontsize=10, pad=8)
+    
+    if hole_coords is not None:
+        r_start, r_end, c_start, c_end = hole_coords
+        rect = patches.Rectangle(
+            (c_start, r_start),            
+            c_end - c_start,               
+            r_end - r_start,               
+            linewidth=2.5,                 
+            edgecolor='red',               
+            facecolor=hole_facecolor,
+            zorder=10
+        )
+        ax.add_patch(rect)
+    return fig
 
     # 🧱 二维壁纸材质纹理平铺渲染引擎（仅对几何实体图 cmap="Blues" 生效）
     if cmap == "Blues" and texture_path and os.path.exists(texture_path):
@@ -925,7 +1008,7 @@ try:
     with img_cols[1]: 
             # 🛠️ 修改位置：选定基准板情况的第二张矩阵（真实试验开裂模式图）增加 hole_facecolor='white'，强制移至顶层渲染
             st.pyplot(
-                plot_matrix_heatmap(base_crack_gt, "2. 真实试验开裂模式图", cmap="gray_r", hole_coords=base_hole_coords, crop_bounds=base_crop_bounds, dilate_first=False, hole_facecolor='white'), 
+                plot_matrix_heatmap(base_crack_gt, "2. 真实试验开裂模式图", cmap="gray_r", hole_coords=base_hole_coords, crop_bounds=base_crop_bounds, dilate_first=False, hole_facecolor='white', use_mst=True), 
                 use_container_width=True
             )
 
