@@ -937,7 +937,7 @@ except Exception as e:
 st.markdown("---")
 st.subheader("开始通过神经网络进行推演")
 
-ui_skeleton_on = st.checkbox("开启独立后处理：对终极开裂模式图进行1像素细化展示", value=True, disabled=not SKIMAGE_AVAILABLE)
+#ui_skeleton_on = st.checkbox("开启独立后处理：对终极开裂模式图进行1像素细化展示", value=True, disabled=not SKIMAGE_AVAILABLE)
 
 current_inputs_hash = (wall_len, wall_hit, wall_layout, has_hole, hole_len, hole_hit, hole_x, hole_y, b_top, b_bottom, b_left, b_right, wall_mat, wall_mortar, wall_asphalt, selected_base_id, ui_skeleton_on)
 if st.session_state.get('inputs_hash') != current_inputs_hash:
