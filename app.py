@@ -1120,7 +1120,7 @@ if st.session_state.get('has_predicted', False):
                 else:
                     max_load = st.session_state.predicted_load_val
                     current_load = max_load * ((idx + 1) / total_frames)
-                    status_text = "极限破坏荷载加载中"
+                    status_text = "破坏荷载加载中"
                 
                 fig_frame = plot_matrix_3d_voxels(
                     frame_matrix, 
@@ -1135,7 +1135,7 @@ if st.session_state.get('has_predicted', False):
         else:
             fig_static = plot_matrix_3d_voxels(
                 st.session_state.evolution_frames[-1], 
-                title="3D损伤裂缝最终贯通破坏形态", 
+                title="3D损伤裂缝的开裂模式图", 
                 wall_mask=pred_wall_mask, wall_len=wall_len, wall_hit=wall_hit, wall_thick=wall_thick, crop_bounds=pred_crop_bounds
             )
             with col_ani1:
@@ -1144,4 +1144,4 @@ if st.session_state.get('has_predicted', False):
                 progress_bar.progress(100)
             with col_ani2:
                 # 修正了文字描述，去除了“左侧”字样
-                st.info("动力学损伤模拟回放已完毕。如需复现应力释放和贯通裂缝的发展过程，请点击旁边的回放按钮。")
+                st.info("损伤模拟回放已完毕。如需再观看，请点击旁边的回放按钮。")
