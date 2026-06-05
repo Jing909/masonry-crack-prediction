@@ -939,7 +939,7 @@ st.subheader("开始通过神经网络进行推演")
 
 #ui_skeleton_on = st.checkbox("开启独立后处理：对终极开裂模式图进行1像素细化展示", value=True, disabled=not SKIMAGE_AVAILABLE)
 
-current_inputs_hash = (wall_len, wall_hit, wall_layout, has_hole, hole_len, hole_hit, hole_x, hole_y, b_top, b_bottom, b_left, b_right, wall_mat, wall_mortar, wall_asphalt, selected_base_id, ui_skeleton_on)
+current_inputs_hash = (wall_len, wall_hit, wall_layout, has_hole, hole_len, hole_hit, hole_x, hole_y, b_top, b_bottom, b_left, b_right, wall_mat, wall_mortar, wall_asphalt, selected_base_id)
 if st.session_state.get('inputs_hash') != current_inputs_hash:
     st.session_state.has_predicted = False
 
@@ -992,8 +992,8 @@ if st.button("启动预测", type="primary", use_container_width=True):
                 if np.any(pred_crack_binary):
                     pred_crack_binary = repair_crack_connectivity(pred_crack_binary, max_gap=2)
                     
-                    if ui_skeleton_on and SKIMAGE_AVAILABLE:
-                        pred_crack_binary = skeletonize(pred_crack_binary.astype(bool)).astype(np.float32)
+                    #if ui_skeleton_on and SKIMAGE_AVAILABLE:
+                        #pred_crack_binary = skeletonize(pred_crack_binary.astype(bool)).astype(np.float32)
                     
                     if has_hole:
                         try:
