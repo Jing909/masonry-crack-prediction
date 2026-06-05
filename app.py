@@ -676,13 +676,13 @@ def plot_matrix_heatmap(matrix, title, cmap="gray", vmin=0, vmax=1, hole_coords=
             r_start_h, r_end_h, c_start_h, c_end_h = hole_coords
             # 🛠️ 修改核心：引入 zorder=10，强制将图层移至最上面，并关联自定背景色 hole_facecolor
             rect = patches.Rectangle(
-                (c_start_h, r_start_h),            
-                c_end_h - c_start_h,               
-                r_end_h - r_start_h,               
-                linewidth=2.0,                 
+                (c_start_h - 0.5, r_start_h - 0.5),  # 👈 坐标向左上角移动了 0.5
+                (c_end_h - c_start_h) + 1.0,         # 👈 宽度加了 1.0
+                (r_end_h - r_start_h) + 1.0,         # 👈 高度加了 1.0
+                linewidth=1.0,                 
                 edgecolor='red',               
                 facecolor=hole_facecolor,
-                zorder=10               
+                zorder=10
             )
             ax.add_patch(rect)
         ax.set_aspect('equal')
