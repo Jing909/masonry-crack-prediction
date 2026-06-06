@@ -25,7 +25,7 @@ st.markdown(
         padding-bottom: 6px !important;
     }
 
-    /* 2. 强制抹除鼠标悬浮在标题栏上时突兀蹦出来的原生灰色背景背景槽 */
+    /* 2. 强制抹除鼠标悬浮在标题栏上时突突出出来的原生灰色背景槽 */
     div[data-testid="stExpander"] > details > summary:hover {
         background-color: transparent !important;
     }
@@ -602,7 +602,8 @@ def generate_crack_evolution_frames(crack_mask, seeds, num_frames=30):
         frames.append(frame)
     return frames
 
-def plot_matrix_heatmap(matrix, title, cmap="gray", vmin=0, vmax=1, hole_coords=None, crop_bounds=None, texture_path=None, texture_scale=1.0, dilate_first=False, hole_facecolor='none', use_mst=False):
+# ==================== 🛠️ 核心融合重构的 plot_matrix_heatmap ====================
+def plot_matrix_heatmap(matrix, title, cmap="gray", vmin=0, vmax=1, hole_coords=None, crop_bounds=None, texture_path=None, texture_scale=1.0, dilate_first=False, hole_facecolor='none', use_mst=False, run_skeleton=True):
     edge_color = 'red' if cmap == "gray_r" else '#444444'
     line_width = 2.0 if cmap == "gray_r" else 1.0
 
@@ -657,13 +658,16 @@ def plot_matrix_heatmap(matrix, title, cmap="gray", vmin=0, vmax=1, hole_coords=
                 ax.add_patch(rect)
             return fig
 
+    # 🚀【精准矢量中点连线引擎】完全同步自 app.py 满血版本
     if cmap == "gray_r":
         binary = (matrix > 0.5).astype(np.uint8)  
+        
         if dilate_first and np.any(binary):
             kernel = np.ones((3, 3), dtype=np.uint8)
             binary = cv2.dilate(binary, kernel, iterations=1)
             
         fig, ax = plt.subplots(figsize=(3.5, 3.5))
+        
         if crop_bounds is not None:
             r_start, r_end, c_start, c_end = crop_bounds
             binary_cropped = binary[r_start:r_end, c_start:c_end]
@@ -677,79 +681,247 @@ def plot_matrix_heatmap(matrix, title, cmap="gray", vmin=0, vmax=1, hole_coords=
         h_c = crop_bounds[1] - crop_bounds[0]
         w_c = crop_bounds[3] - crop_bounds[2]
         
-        if SKIMAGE_AVAILABLE and np.any(binary_cropped):
+        # 1. 执行连通性保护骨架化
+        if run_skeleton and SKIMAGE_AVAILABLE and np.any(binary_cropped):
             skel = skeletonize(binary_cropped.astype(bool)).astype(np.uint8)
         else:
             skel = binary_cropped.astype(np.uint8)
             
+        H_c, W_c = skel.shape
+        
+        # 定义精准的外墙四周绝对边界网格集合
+        wall_boundaries = set()
+        for c in range(W_c):
+            wall_boundaries.add((0, c))
+            wall_boundaries.add((H_c - 1, c))
+        for r in range(H_c):
+            wall_boundaries.add((r, 0))
+            wall_boundaries.add((r, W_c - 1))
+
+        # 定义精准的洞口墙体侧紧邻网格集合
+        hole_boundaries = set()
+        if hole_coords is not None:
+            hr_s, hr_e, hc_s, hc_e = hole_coords
+            for r in range(hr_s, hr_e):
+                if 0 <= hc_s - 1 < W_c: hole_boundaries.add((r, hc_s - 1)) # 洞左墙面
+                if 0 <= hc_e < W_c:     hole_boundaries.add((r, hc_e))     # 洞右墙面
+            for c in range(hc_s, hc_e):
+                if 0 <= hr_s - 1 < H_c: hole_boundaries.add((hr_s - 1, c)) # 洞上墙面
+                if 0 <= hr_e < H_c:     hole_boundaries.add((hr_e, c))     # 洞下墙面
+
+        # ==================== 🧱 🛡️ 步骤一：初始无效纯悬空碎片裂缝初筛 ====================
+        if np.any(skel):
+            num_labels, labels = cv2.connectedComponents(skel, connectivity=8)
+            filtered_skel = np.zeros_like(skel)
+            for label_idx in range(1, num_labels):
+                comp_mask = (labels == label_idx).astype(np.uint8)
+                component_pts = np.argwhere(comp_mask == 1)
+                pts_set = set(tuple(p) for p in component_pts)
+                
+                touches_wall_initially = any(p in wall_boundaries for p in pts_set)
+                touches_hole_initially = any(p in hole_boundaries for p in pts_set) if hole_coords is not None else False
+                
+                if hole_coords is not None:
+                    if not touches_wall_initially and not touches_hole_initially and len(pts_set) < 3:
+                        continue
+                else:
+                    if not touches_wall_initially and len(pts_set) < 3:
+                        continue
+                filtered_skel[comp_mask == 1] = 1
+            skel = filtered_skel
+
+        # ==================== 🗺️ 步骤二：满足力学定义的零死胡同全通路强行扩展延伸 ====================
+        if np.any(skel):
+            num_labels, labels = cv2.connectedComponents(skel, connectivity=8)
+            detect_kernel = np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]], dtype=np.uint8)
+            
+            for label_idx in range(1, num_labels):
+                comp_mask = (labels == label_idx).astype(np.uint8)
+                component_pts = np.argwhere(comp_mask == 1)
+                pts_set = set(tuple(p) for p in component_pts)
+                
+                neighbor_count = cv2.filter2D(comp_mask, -1, detect_kernel, borderType=cv2.BORDER_CONSTANT)
+                endpoints = [tuple(p) for p in np.argwhere((comp_mask == 1) & (neighbor_count <= 1))]
+                
+                if len(endpoints) == 0:
+                    endpoints = list(pts_set)
+                
+                if hole_coords is not None:
+                    touches_hole = any(p in hole_boundaries for p in pts_set)
+                    
+                    if not touches_hole and hole_boundaries:
+                        min_dist = float('inf')
+                        best_ep, best_hb = None, None
+                        for ep in endpoints:
+                            for hb in hole_boundaries:
+                                dist = (ep[0] - hb[0])**2 + (ep[1] - hb[1])**2
+                                if dist < min_dist:
+                                    min_dist = dist
+                                    best_ep = ep
+                                    best_hb = hb
+                        if best_ep and best_hb:
+                            cv2.line(skel, (int(best_ep[1]), int(best_ep[0])), (int(best_hb[1]), int(best_hb[0])), 1, 1)
+                            if best_ep in endpoints:
+                                endpoints.remove(best_ep)
+                    
+                    for ep in endpoints:
+                        if ep in wall_boundaries or ep in hole_boundaries:
+                            continue
+                        min_dist = float('inf')
+                        best_wb = None
+                        for wb in wall_boundaries:
+                            dist = (ep[0] - wb[0])**2 + (ep[1] - wb[1])**2
+                            if dist < min_dist:
+                                min_dist = dist
+                                best_wb = wb
+                        if best_wb:
+                            cv2.line(skel, (int(ep[1]), int(ep[0])), (int(best_wb[1]), int(best_wb[0])), 1, 1)
+                else:
+                    for ep in endpoints:
+                        if ep in wall_boundaries:
+                            continue
+                        min_dist = float('inf')
+                        best_wb = None
+                        for wb in wall_boundaries:
+                            dist = (ep[0] - wb[0])**2 + (ep[1] - wb[1])**2
+                            if dist < min_dist:
+                                min_dist = dist
+                                best_wb = wb
+                        if best_wb:
+                            cv2.line(skel, (int(ep[1]), int(ep[0])), (int(best_wb[1]), int(best_wb[0])), 1, 1)
+
+        # ==================== 🛠️ 🔥 步骤三：基于非突变矢量白名单的 MST 去小环引擎 ====================
+        edges_to_draw = set()          
+        isolated_nodes_to_draw = set()  
+        
+        if np.any(skel):
+            num_labels, labels = cv2.connectedComponents(skel, connectivity=8)
+            
+            for label_idx in range(1, num_labels):
+                comp_mask = (labels == label_idx).astype(np.uint8)
+                component_pts = [tuple(p) for p in np.argwhere(comp_mask == 1)]
+                pts_set = set(component_pts)
+                
+                N_black_total = len(pts_set)
+                loop_threshold = max(3, int(N_black_total * 0.25))  
+                
+                comp_edges = []
+                for r, c in component_pts:
+                    for dr, dc in [(0,1), (1,0), (1,1), (1,-1)]:
+                        nr, nc = r + dr, c + dc
+                        if (nr, nc) in pts_set:
+                            edge = ((r, c), (nr, nc)) if (r, c) < (nr, nc) else ((nr, nc), (r, c))
+                            comp_edges.append(edge)
+                comp_edges = list(set(comp_edges))
+                
+                comp_edges.sort(key=lambda e: (e[0][0]-e[1][0])**2 + (e[0][1]-e[1][1])**2)
+                
+                parent_uf = {p: p for p in component_pts}
+                def find_uf(n):
+                    if parent_uf[n] == n: return n
+                    parent_uf[n] = find_uf(parent_uf[n])
+                    return parent_uf[n]
+                def union_uf(n1, n2):
+                    r1, r2 = find_uf(n1), find_uf(n2)
+                    if r1 != r2:
+                        parent_uf[r1] = r2
+                        return True
+                    return False
+                
+                mst_edges = []
+                cycle_edges = []
+                for e in comp_edges:
+                    if union_uf(e[0], e[1]):
+                        mst_edges.append(e)
+                    else:
+                        cycle_edges.append(e)
+                
+                edges_to_draw.update(mst_edges)
+                
+                mst_adj = {n: [] for n in component_pts}
+                for e in mst_edges:
+                    mst_adj[e[0]].append(e[1])
+                    mst_adj[e[1]].append(e[0])
+                
+                for e in cycle_edges:
+                    u, v = e[0], e[1]
+                    queue = [(u, 1)]
+                    visited = {u}
+                    cycle_len = 0
+                    while queue:
+                        curr, dist = queue.pop(0)
+                        if curr == v:
+                            cycle_len = dist
+                            break
+                        for nxt in mst_adj[curr]:
+                            if nxt not in visited:
+                                visited.add(nxt)
+                                queue.append((nxt, dist + 1))
+                    
+                    if cycle_len > loop_threshold:
+                        edges_to_draw.add(e)
+                        
+                if len(component_pts) == 1:
+                    isolated_nodes_to_draw.add(component_pts[0])
+            
         ax.set_xlim(0, w_c)
         ax.set_ylim(h_c, 0)  
-        ax.set_facecolor('white')  
+        
+        ax.set_facecolor("white")  
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for spine in ax.spines.values():
+            spine.set_visible(True)
+            spine.set_color("black")
+            spine.set_linewidth(1.0)
+
         if GLOBAL_FONT_PROP:
             ax.set_title(title, fontproperties=GLOBAL_FONT_PROP, fontsize=10, pad=8)
         else:
             ax.set_title(title, fontsize=10, pad=8)
-        ax.axis('off')
         
-        if np.any(skel):
-            rows, cols = np.where(skel == 1)
-            pts = list(zip(rows, cols))
-            drawn_nodes = set()
+        def get_stretched_coords(r_idx, c_idx):
+            x_plot = c_idx + 0.5
+            y_plot = r_idx + 0.5
+            if c_idx == 0: x_plot = 0.0
+            elif c_idx == W_c - 1: x_plot = float(W_c)
+            if r_idx == 0: y_plot = 0.0
+            elif r_idx == H_c - 1: y_plot = float(H_c)
+            if hole_coords is not None:
+                hr_s, hr_e, hc_s, hc_e = hole_coords
+                if hr_s <= r_idx < hr_e:
+                    if c_idx == hc_s - 1: x_plot = float(hc_s) - 0.5  
+                    elif c_idx == hc_e: x_plot = float(hc_e) + 0.5    
+                if hc_s <= c_idx < hc_e:
+                    if r_idx == hr_s - 1: y_plot = float(hr_s) - 0.5  
+                    elif r_idx == hr_e: y_plot = float(hr_e) + 0.5    
+            return x_plot, y_plot
+        
+        drawn_nodes = set()
+        for e in edges_to_draw:
+            u, v = e[0], e[1]
+            x1, y1 = get_stretched_coords(u[0], u[1])
+            x2, y2 = get_stretched_coords(v[0], v[1])
+            ax.plot([x1, x2], [y1, y2], color='black', linewidth=1.2, solid_capstyle='round')
+            drawn_nodes.add(u)
+            drawn_nodes.add(v)
             
-            if use_mst:
-                node_to_idx = {node: i for i, node in enumerate(pts)}
-                num_nodes = len(pts)
-                edges = []
-                for r, c in pts:
-                    u = node_to_idx[(r, c)]
-                    for dr, dc in [(0, 1), (1, 0), (1, 1), (1, -1)]:  
-                        nr, nc = r + dr, c + dc
-                        if (nr, nc) in node_to_idx:
-                            v = node_to_idx[(nr, nc)]
-                            if u < v:
-                                weight = np.sqrt(dr**2 + dc**2)
-                                edges.append((weight, u, v))
-                edges.sort(key=lambda x: x[0])
-                parent = list(range(num_nodes))
-                
-                def find(i):
-                    root = i
-                    while root != parent[root]:
-                        root = parent[root]
-                    curr = i
-                    while curr != root:
-                        nxt = parent[curr]
-                        parent[curr] = root
-                        curr = nxt
-                    return root
-                
-                for weight, u, v in edges:
-                    root_u = find(u)
-                    root_v = find(v)
-                    if root_u != root_v:
-                        parent[root_u] = root_v
-                        r1, c1 = pts[u]
-                        r2, c2 = pts[v]
-                        ax.plot([c1 + 0.5, c2 + 0.5], [r1 + 0.5, r2 + 0.5], color='black', linewidth=1.2, solid_capstyle='round')
-                        drawn_nodes.add(pts[u])
-                        drawn_nodes.add(pts[v])
-            else:
-                pts_set = set(pts)
-                for r, c in pts_set:
-                    for dr, dc in [(0, 1), (1, 0), (1, 1), (1, -1)]:  
-                        nr, nc = r + dr, c + dc
-                        if (nr, nc) in pts_set:
-                            ax.plot([c + 0.5, nc + 0.5], [r + 0.5, nr + 0.5], color='black', linewidth=1.2, solid_capstyle='round')
-                            drawn_nodes.add((r, c))
-                            drawn_nodes.add((nr, nc))
-            
-            for r, c in pts:
-                if (r, c) not in drawn_nodes:
-                    ax.plot(c + 0.5, r + 0.5, marker='o', color='black', markersize=1.5)
+        for pt in isolated_nodes_to_draw:
+            if pt not in drawn_nodes:
+                x, y = get_stretched_coords(pt[0], pt[1])
+                ax.plot(x, y, marker='o', color='black', markersize=1.5)
                     
         if hole_coords is not None:
             r_start_h, r_end_h, c_start_h, c_end_h = hole_coords
-            rect = patches.Rectangle((c_start_h - 0.5, r_start_h - 0.5), (c_end_h - c_start_h) + 1.0, (r_end_h - r_start_h) + 1.0, linewidth=1.0, edgecolor='red', facecolor=hole_facecolor, zorder=10)
+            rect = patches.Rectangle(
+                (c_start_h - 0.5, r_start_h - 0.5),            
+                (c_end_h - c_start_h) + 1.0,               
+                (r_end_h - r_start_h) + 1.0,               
+                linewidth=1.0,                 
+                edgecolor='red',               
+                facecolor=hole_facecolor,
+                zorder=10
+            )
             ax.add_patch(rect)
             
         ax.set_aspect('equal')
@@ -771,7 +943,15 @@ def plot_matrix_heatmap(matrix, title, cmap="gray", vmin=0, vmax=1, hole_coords=
     
     if hole_coords is not None:
         r_start, r_end, c_start, c_end = hole_coords
-        rect = patches.Rectangle((c_start, r_start), c_end - c_start, r_end - r_start, linewidth=2.5, edgecolor='red', facecolor=hole_facecolor, zorder=10)
+        rect = patches.Rectangle(
+            (c_start, r_start),            
+            c_end - c_start,               
+            r_end - r_start,               
+            linewidth=2.5,                 
+            edgecolor='red',               
+            facecolor=hole_facecolor,
+            zorder=10
+        )
         ax.add_patch(rect)
     return fig
 
@@ -814,7 +994,6 @@ def generate_spatial_masks(L, H, has_hole, hole_l, hole_h, x_dist, y_dist, SCALE
 
 # ==================== 4. 页面头部区域 ====================
 st.markdown("<h2 style='text-align: center; font-weight: 700;'>砌体墙双板交互比对破坏预测系统</h2>", unsafe_allow_html=True)
-#st.markdown("<p style='text-align: center; color: #666;'>基于直角坐标感知双塔专家解耦预测神经网络 · 仿真级可视化学术面板</p>", unsafe_allow_html=True)
 st.markdown("---")
 
 # ==================== 5. 侧边栏配置栏 ====================
@@ -890,7 +1069,6 @@ except Exception as e:
     st.error(f"无法完整追溯基准板 [{selected_base_id}] 的数据: {str(e)}")
     base_load_gt = 0.0
 
-# 核心修改：第一步标题与“启动推理”按钮进行横向强对齐，在右侧直接展示
 col_step1_title, col_step1_btn = st.columns([4, 1])
 
 with col_step1_title:
@@ -903,7 +1081,6 @@ if st.session_state.get('inputs_hash') != current_inputs_hash:
 with col_step1_btn:
     start_prediction = st.button("开始预测", type="primary", use_container_width=True)
 
-# 渲染双板几何图形（已删除容器外包框）
 col_target, col_benchmark = st.columns(2)
 
 with col_target:
@@ -934,7 +1111,19 @@ with col_benchmark:
         fig_base_geom = plot_matrix_heatmap(base_wall, "基准板物理几何尺度", cmap="Blues", hole_coords=base_hole_coords, crop_bounds=base_crop_bounds, texture_path=WALL_TEXTURE_PATH, texture_scale=texture_scale)
         st.pyplot(fig_base_geom, use_container_width=True)
     with sub_c2:
-        fig_base_crack = plot_matrix_heatmap(base_crack_gt, "真实试验的开裂模式图", cmap="gray_r", hole_coords=base_hole_coords, crop_bounds=base_crop_bounds, dilate_first=False, hole_facecolor='white', use_mst=True)
+        # 🧱 🛡️ 🔥 完全同步自 app.py：执行降采样后的对角线孤立间隙修护引擎，并传入全新矢量引擎参数
+        base_crack_repaired = repair_crack_connectivity(base_crack_gt, max_gap=2)
+        
+        fig_base_crack = plot_matrix_heatmap(
+            base_crack_repaired, 
+            "3. 历史裂缝 (黑白线条图)", 
+            cmap="gray_r", 
+            hole_coords=base_hole_coords, 
+            crop_bounds=base_crop_bounds, 
+            dilate_first=False, 
+            hole_facecolor='white', 
+            run_skeleton=True            # 🔥 替换成 app.py 专属的连通性骨架保护引擎开关！
+        )
         st.pyplot(fig_base_crack, use_container_width=True)
 
 
@@ -1051,7 +1240,7 @@ if start_prediction:
             except Exception as e:
                 st.error(f"运行时推理机制中断: {str(e)}")
 
-# ==================== 8. 全面整合的 Tab 可视化看板 ====================
+# ==================== 8. 全面整合的 Tab 可戏化看板 ====================
 if st.session_state.get('has_predicted', False):
     st.markdown("### 待预测新构件预测破坏结果")
     
@@ -1089,7 +1278,7 @@ if st.session_state.get('has_predicted', False):
     with tab_prob:
         col_pb1, col_pb2 = st.columns([1.2, 1])
         with col_pb1:
-            fig_prob = plot_matrix_heatmap(st.session_state.pred_crack_prob, "神经网络预测的开裂模式图", cmap="gray_r", hole_coords=pred_hole_coords, crop_bounds=pred_crop_bounds, dilate_first=True)
+            fig_prob = plot_matrix_heatmap(st.session_state.pred_crack_prob, "神经网络预测的开裂模式图", cmap="gray_r", hole_coords=pred_hole_coords, crop_bounds=pred_crop_bounds, dilate_first=True, run_skeleton=True)
             st.pyplot(fig_prob, use_container_width=True)
 
     with tab_animation:
@@ -1100,7 +1289,6 @@ if st.session_state.get('has_predicted', False):
             progress_bar = st.progress(0)
         
         with col_ani2:
-            # 在右侧列内部建立子分栏，使标题和按钮强行同行对齐
             col_view_title, col_view_btn = st.columns([1.8, 1])
             with col_view_title:
                 st.markdown("#### 3D 破坏形态静止视图")
@@ -1143,5 +1331,4 @@ if st.session_state.get('has_predicted', False):
                 plt.close(fig_static)
                 progress_bar.progress(100)
             with col_ani2:
-                # 修正了文字描述，去除了“左侧”字样
                 st.info("损伤模拟回放已完毕。如需再观看，请点击旁边的回放按钮。")
