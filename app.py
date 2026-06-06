@@ -1026,7 +1026,7 @@ with st.sidebar:
     with st.expander("材料属性配置"):
         wall_mat = st.selectbox("砌块材料类型", options=['B级面砖', '密实混凝土', 'A级工程砖'], index=0)
         wall_mortar = st.selectbox("砂浆配比比例", options=['1:01:06', '1:01:16', '1:1/2:4'], index=0)
-        wall_asphalt = st.selectbox("底板沥青防潮层", options=['无', '有'], index=0)
+        wall_asphalt = st.selectbox("是否存在沥青层", options=['无', '有'], index=0)
 
     st.markdown("---")
     st.markdown("### 对照实验锚定")
@@ -1108,7 +1108,7 @@ with col_benchmark:
     
     sub_c1, sub_c2 = st.columns(2)
     with sub_c1:
-        fig_base_geom = plot_matrix_heatmap(base_wall, "基准板物理几何尺度", cmap="Blues", hole_coords=base_hole_coords, crop_bounds=base_crop_bounds, texture_path=WALL_TEXTURE_PATH, texture_scale=texture_scale)
+        fig_base_geom = plot_matrix_heatmap(base_wall, "基准板相对墙体空间特征", cmap="Blues", hole_coords=base_hole_coords, crop_bounds=base_crop_bounds, texture_path=WALL_TEXTURE_PATH, texture_scale=texture_scale)
         st.pyplot(fig_base_geom, use_container_width=True)
     with sub_c2:
         # 🧱 🛡️ 🔥 完全同步自 app.py：执行降采样后的对角线孤立间隙修护引擎，并传入全新矢量引擎参数
@@ -1116,7 +1116,7 @@ with col_benchmark:
         
         fig_base_crack = plot_matrix_heatmap(
             base_crack_repaired, 
-            "3. 历史裂缝 (黑白线条图)", 
+            "真实试验的开裂模式图", 
             cmap="gray_r", 
             hole_coords=base_hole_coords, 
             crop_bounds=base_crop_bounds, 
