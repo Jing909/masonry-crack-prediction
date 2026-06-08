@@ -1268,9 +1268,9 @@ if st.session_state.get('has_predicted', False):
             tp = st.session_state.p_true
             
             with fp_cols[0]: st.metric(label="A1. 预测 F 点荷载", value=f"{pf:.2f} kN/m²", delta=f"绝对误差: {pf - tf:+.2f}" if tf > 0 else None, delta_color="inverse")
-            with fp_cols[1]: st.metric(label="A2. 试验理论 F 点荷载", value=f"{tf:.2f} kN/m²")
+            with fp_cols[1]: st.metric(label="A2. 基准板试验的理论 F 点荷载", value=f"{tf:.2f} kN/m²")
             with fp_cols[2]: st.metric(label="B1. 预测 P 点荷载", value=f"{pp:.2f} kN/m²", delta=f"绝对误差: {pp - tp:+.2f}" if tp > 0 else None, delta_color="inverse")
-            with fp_cols[3]: st.metric(label="B2. 试验真实 P 点荷载", value=f"{tp:.2f} kN/m²")
+            with fp_cols[3]: st.metric(label="B2. 基准板试验的真实 P 点荷载", value=f"{tp:.2f} kN/m²")
         else:
             st.warning("时序特征文件缺失。寻觅路径为：")
             st.code(os.path.join(STEP3_DATA_DIR, f'{selected_base_id}_step3_input.npz'))
@@ -1278,7 +1278,7 @@ if st.session_state.get('has_predicted', False):
     with tab_prob:
         col_pb1, col_pb2 = st.columns([1.2, 1])
         with col_pb1:
-            fig_prob = plot_matrix_heatmap(st.session_state.pred_crack_prob, "神经网络预测的开裂模式图", cmap="gray_r", hole_coords=pred_hole_coords, crop_bounds=pred_crop_bounds, dilate_first=True, run_skeleton=True)
+            fig_prob = plot_matrix_heatmap(st.session_state.pred_crack_prob, "神经网络预测的待预测新构件开裂模式图", cmap="gray_r", hole_coords=pred_hole_coords, crop_bounds=pred_crop_bounds, dilate_first=True, run_skeleton=True)
             st.pyplot(fig_prob, use_container_width=True)
 
     with tab_animation:
@@ -1323,7 +1323,7 @@ if st.session_state.get('has_predicted', False):
         else:
             fig_static = plot_matrix_3d_voxels(
                 st.session_state.evolution_frames[-1], 
-                title="3D损伤裂缝的开裂模式图", 
+                title="待预测新构件的3D损伤裂缝的开裂模式图", 
                 wall_mask=pred_wall_mask, wall_len=wall_len, wall_hit=wall_hit, wall_thick=wall_thick, crop_bounds=pred_crop_bounds
             )
             with col_ani1:
