@@ -1250,7 +1250,7 @@ if st.session_state.get('has_predicted', False):
         p_load = st.session_state.predicted_load_val
         b_load = st.session_state.base_load_gt
         load_delta = p_load - b_load if b_load > 0 else 0.0
-        st_delta_str = f"环境比对增量: {load_delta:+.2f} kN/m²" if b_load > 0 else "对比基准未激活"
+        st_delta_str = f"与基准板真实破坏荷载对比: {load_delta:+.2f} kN/m²" if b_load > 0 else "对比基准未激活"
         
         m_c1, m_c2 = st.columns(2)
         with m_c1: 
@@ -1267,13 +1267,13 @@ if st.session_state.get('has_predicted', False):
             pp = st.session_state.pred_p_val
             tp = st.session_state.p_true
             
-            with fp_cols[0]: st.metric(label="A1. 预测 F 点荷载", value=f"{pf:.2f} kN/m²", delta=f"绝对误差: {pf - tf:+.2f}" if tf > 0 else None, delta_color="inverse")
+            with fp_cols[0]: st.metric(label="A1. 预测 F 点荷载", value=f"{pf:.2f} kN/m²", delta=f"与基准板试验的理论 F 点荷载的绝对误差: {pf - tf:+.2f}" if tf > 0 else None, delta_color="inverse")
             with fp_cols[1]: st.metric(label="A2. 基准板试验的理论 F 点荷载", value=f"{tf:.2f} kN/m²")
-            with fp_cols[2]: st.metric(label="B1. 预测 P 点荷载", value=f"{pp:.2f} kN/m²", delta=f"绝对误差: {pp - tp:+.2f}" if tp > 0 else None, delta_color="inverse")
+            with fp_cols[2]: st.metric(label="B1. 预测 P 点荷载", value=f"{pp:.2f} kN/m²", delta=f"与基准板试验的真实 P 点荷载的绝对误差: {pp - tp:+.2f}" if tp > 0 else None, delta_color="inverse")
             with fp_cols[3]: st.metric(label="B2. 基准板试验的真实 P 点荷载", value=f"{tp:.2f} kN/m²")
         else:
-            st.warning("时序特征文件缺失。寻觅路径为：")
-            st.code(os.path.join(STEP3_DATA_DIR, f'{selected_base_id}_step3_input.npz'))
+            st.warning("时序特征文件缺失（如选择的基准板为SB09，时序特征文件缺失则是正常现象，因为缺乏SB09的破坏试验过程数据）。")
+            #st.code(os.path.join(STEP3_DATA_DIR, f'{selected_base_id}_step3_input.npz'))
 
     with tab_prob:
         col_pb1, col_pb2 = st.columns([1.2, 1])
