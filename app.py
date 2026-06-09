@@ -47,6 +47,48 @@ try:
 except ImportError:
     SKIMAGE_AVAILABLE = False
 
+# ==================== 全局无差别纯黑直角工业风 CSS 注入 ====================
+st.markdown(
+    """
+    <style>
+    /* 1. 彻底斩断折叠面板原生的四周外框、阴影和圆角，将其软化为纯透明底色 */
+    div[data-testid="stExpander"] {
+        background-color: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        border-radius: 0px !important;
+        border-bottom: 1px solid #d3d3d3 !important; 
+        margin-bottom: 10px !important;
+        padding-bottom: 6px !important;
+    }
+
+    /* 2. 强制抹除鼠标悬浮在标题栏上时突突出出来的原生灰色背景槽 */
+    div[data-testid="stExpander"] > details > summary:hover {
+        background-color: transparent !important;
+    }
+
+    /* 3. 消除点击展开后，内部表单/滑动条内容区域的多余边框与两侧缩进 */
+    div[data-testid="stExpander"] > div {
+        border: none !important;
+        padding-left: 4px !important;
+        padding-right: 4px !important;
+    }
+
+    /* 🔥 4. 新增：解除 Metric 组件文本的截断锁定，允许其在空间不足时自动完整换行显示 */
+    div[data-testid="stMetricLabel"] > div {
+        white-space: normal !important;
+        word-break: break-word !important;
+        overflow: visible !important;
+    }
+    div[data-testid="stMetricDelta"] > div {
+        white-space: normal !important;
+        word-break: break-word !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # ==================== 0. 基础配置与中文字体修复 ====================
 st.set_page_config(page_title="砌体墙双板交互比对破坏预测系统", layout="wide", initial_sidebar_state="expanded")
 
@@ -1241,36 +1283,43 @@ if start_prediction:
                 st.error(f"运行时推理机制中断: {str(e)}")
 
 # ==================== 8. 全面整合的 Tab 可戏化看板 ====================
-if st.session_state.get('has_predicted', False):
-    st.markdown("### 待预测新构件预测破坏结果")
-    
-    tab_metrics, tab_prob, tab_animation = st.tabs(["荷载情况", "2D开裂模式图", "3D开裂模式演化过程"])
-    
-    with tab_metrics:
-        p_load = st.session_state.predicted_load_val
-        b_load = st.session_state.base_load_gt
-        load_delta = p_load - b_load if b_load > 0 else 0.0
-        st_delta_str = f"与基准板真实破坏荷载对比: {load_delta:+.2f} kN/m²" if b_load > 0 else "对比基准未激活"
-        
-        m_c1, m_c2 = st.columns(2)
-        with m_c1: 
-            st.metric(label="待预测新构件破坏荷载 (Predicted Load)", value=f"{p_load:.3f} kN/m²", delta=st_delta_str)
-        with m_c2: 
-            st.metric(label="基准板真实破坏荷载", value=f"{b_load:.2f} kN/m²" if b_load > 0 else "未知")
-            
-        st.markdown("---")
-        
-        if st.session_state.step3_available:
-            fp_cols = st.columns(4)
+if st.session_state.step3_available:
             pf = st.session_state.pred_f_val
             tf = st.session_state.f_true
             pp = st.session_state.pred_p_val
             tp = st.session_state.p_true
             
-            with fp_cols[0]: st.metric(label="A1. 预测 F 点荷载", value=f"{pf:.2f} kN/m²", delta=f"与基准板试验的理论 F 点荷载的绝对误差: {pf - tf:+.2f}" if tf > 0 else None, delta_color="inverse")
-            with fp_cols[1]: st.metric(label="A2. 基准板试验的理论 F 点荷载", value=f"{tf:.2f} kN/m²")
-            with fp_cols[2]: st.metric(label="B1. 预测 P 点荷载", value=f"{pp:.2f} kN/m²", delta=f"与基准板试验的真实 P 点荷载的绝对误差: {pp - tp:+.2f}" if tp > 0 else None, delta_color="inverse")
-            with fp_cols[3]: st.metric(label="B2. 基准板试验的真实 P 点荷载", value=f"{tp:.2f} kN/m²")
+            # --- 🔹 F 点荷载对比区（改为 2 列布局，释放横向空间） ---
+            st.markdown("#### 🔹 F 点荷载比对分析")
+            f_cols = st.columns(2)
+            with f_cols[0]: 
+                st.metric(
+                    label="A1. 预测 F 点荷载", 
+                    value=f"{pf:.2f} kN/m²", 
+                    delta=f"绝对误差: {pf - tf:+.2f} kN/m²" if tf > 0 else None, 
+                    delta_color="inverse"
+                )
+                if tf > 0:
+                    st.caption("💡 误差基准：相对基准板试验的理论 F 点荷载")
+            with f_cols[1]: 
+                st.metric(label="A2. 基准板试验的理论 F 点荷载", value=f"{tf:.2f} kN/m²")
+            
+            st.markdown("<br>", unsafe_allow_html=True) # 稍微留一点纵向间距
+            
+            # --- 🔹 P 点荷载对比区（改为 2 列布局，释放横向空间） ---
+            st.markdown("#### 🔹 P 点荷载比对分析")
+            p_cols = st.columns(2)
+            with p_cols[0]: 
+                st.metric(
+                    label="B1. 预测 P 点荷载", 
+                    value=f"{pp:.2f} kN/m²", 
+                    delta=f"绝对误差: {pp - tp:+.2f} kN/m²" if tp > 0 else None, 
+                    delta_color="inverse"
+                )
+                if tp > 0:
+                    st.caption("💡 误差基准：相对基准板试验的真实 P 点荷载")
+            with p_cols[1]: 
+                st.metric(label="B2. 基准板试验的真实 P 点荷载", value=f"{tp:.2f} kN/m²")
         else:
             st.warning("时序特征文件缺失（如选择的基准板为SB09，时序特征文件缺失则是正常现象，因为缺乏SB09的破坏试验过程数据）。")
             #st.code(os.path.join(STEP3_DATA_DIR, f'{selected_base_id}_step3_input.npz'))
