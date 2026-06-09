@@ -1318,15 +1318,15 @@ if st.session_state.get('has_predicted', False):
                 f_cols = st.columns(2)  # 嵌套内部双列
                 with f_cols[0]: 
                     st.metric(
-                        label="A1. 预测 F 点荷载", 
+                        label="A1. 预测待预测新构件的 F 点荷载", 
                         value=f"{pf:.2f} kN/m²", 
                         delta=f"绝对误差: {pf - tf:+.2f} kN/m²" if tf > 0 else None, 
                         delta_color="inverse"
                     )
                     if tf > 0:
-                        st.caption("误差基准：相对基准板理论 F 点")
+                        st.caption("误差基准：相对基准板试验的 F 点或者")
                 with f_cols[1]: 
-                    st.metric(label="A2. 基准板试验理论 F 点", value=f"{tf:.2f} kN/m²")
+                    st.metric(label="A2. 基准板试验的 F 点或者", value=f"{tf:.2f} kN/m²")
             
             # ==================== 右主列：P 点荷载比对分析 ====================
             with analysis_row[1]:
@@ -1334,15 +1334,15 @@ if st.session_state.get('has_predicted', False):
                 p_cols = st.columns(2)  # 嵌套内部双列
                 with p_cols[0]: 
                     st.metric(
-                        label="B1. 预测 P 点荷载", 
+                        label="B1. 预测待预测新构件的 P 点荷载", 
                         value=f"{pp:.2f} kN/m²", 
                         delta=f"绝对误差: {pp - tp:+.2f} kN/m²" if tp > 0 else None, 
                         delta_color="inverse"
                     )
                     if tp > 0:
-                        st.caption("误差基准：相对基准板真实 P 点")
+                        st.caption("误差基准：相对基准板试验的 P 点荷载")
                 with p_cols[1]: 
-                    st.metric(label="B2. 基准板试验真实 P 点", value=f"{tp:.2f} kN/m²")
+                    st.metric(label="B2. 基准板试验的 P 点荷载", value=f"{tp:.2f} kN/m²")
         else:
             # 🛡️ 正确对齐：对应的 else 分支（同样缩进 8 个空格）
             st.warning("时序特征文件缺失（如选择的基准板为SB09，时序特征文件缺失则是正常现象，因为缺乏SB09的破坏试验过程数据）。")
