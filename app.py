@@ -1324,7 +1324,7 @@ if st.session_state.get('has_predicted', False):
                         delta_color="inverse"
                     )
                     if tf > 0:
-                        st.caption("误差基准：相对基准板试验的 F 点或者")
+                        st.caption("误差基准：相对基准板试验的 F 点荷载")
                 with f_cols[1]: 
                     st.metric(label="A2. 基准板试验的 F 点或者", value=f"{tf:.2f} kN/m²")
             
