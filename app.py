@@ -1283,7 +1283,26 @@ if start_prediction:
                 st.error(f"运行时推理机制中断: {str(e)}")
 
 # ==================== 8. 全面整合的 Tab 可戏化看板 ====================
-if st.session_state.step3_available:
+if st.session_state.get('has_predicted', False):
+    st.markdown("### 待预测新构件预测破坏结果")
+    
+    tab_metrics, tab_prob, tab_animation = st.tabs(["荷载情况", "2D开裂模式图", "3D开裂模式演化过程"])
+    
+    with tab_metrics:
+        p_load = st.session_state.predicted_load_val
+        b_load = st.session_state.base_load_gt
+        load_delta = p_load - b_load if b_load > 0 else 0.0
+        st_delta_str = f"与基准板真实破坏荷载对比: {load_delta:+.2f} kN/m²" if b_load > 0 else "对比基准未激活"
+        
+        m_c1, m_c2 = st.columns(2)
+        with m_c1: 
+            st.metric(label="待预测新构件破坏荷载 (Predicted Load)", value=f"{p_load:.3f} kN/m²", delta=st_delta_str)
+        with m_c2: 
+            st.metric(label="基准板真实破坏荷载", value=f"{b_load:.2f} kN/m²" if b_load > 0 else "未知")
+            
+        st.markdown("---")
+        
+        if st.session_state.get('step3_available', False):
             pf = st.session_state.pred_f_val
             tf = st.session_state.f_true
             pp = st.session_state.pred_p_val
@@ -1322,7 +1341,6 @@ if st.session_state.step3_available:
                 st.metric(label="B2. 基准板试验的真实 P 点荷载", value=f"{tp:.2f} kN/m²")
         else:
             st.warning("时序特征文件缺失（如选择的基准板为SB09，时序特征文件缺失则是正常现象，因为缺乏SB09的破坏试验过程数据）。")
-            #st.code(os.path.join(STEP3_DATA_DIR, f'{selected_base_id}_step3_input.npz'))
 
     with tab_prob:
         col_pb1, col_pb2 = st.columns([1.2, 1])
