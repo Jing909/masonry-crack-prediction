@@ -1283,62 +1283,46 @@ if start_prediction:
                 st.error(f"运行时推理机制中断: {str(e)}")
 
 # ==================== 8. 全面整合的 Tab 可戏化看板 ====================
-if st.session_state.get('has_predicted', False):
-    st.markdown("### 待预测新构件预测破坏结果")
-    
-    tab_metrics, tab_prob, tab_animation = st.tabs(["荷载情况", "2D开裂模式图", "3D开裂模式演化过程"])
-    
-    with tab_metrics:
-        p_load = st.session_state.predicted_load_val
-        b_load = st.session_state.base_load_gt
-        load_delta = p_load - b_load if b_load > 0 else 0.0
-        st_delta_str = f"与基准板真实破坏荷载对比: {load_delta:+.2f} kN/m²" if b_load > 0 else "对比基准未激活"
-        
-        m_c1, m_c2 = st.columns(2)
-        with m_c1: 
-            st.metric(label="待预测新构件破坏荷载 (Predicted Load)", value=f"{p_load:.3f} kN/m²", delta=st_delta_str)
-        with m_c2: 
-            st.metric(label="基准板真实破坏荷载", value=f"{b_load:.2f} kN/m²" if b_load > 0 else "未知")
-            
-        st.markdown("---")
-        
-        if st.session_state.get('step3_available', False):
+if st.session_state.get('step3_available', False):
             pf = st.session_state.pred_f_val
             tf = st.session_state.f_true
             pp = st.session_state.pred_p_val
             tp = st.session_state.p_true
             
-            # --- 🔹 F 点荷载对比区（改为 2 列布局，释放横向空间） ---
-            st.markdown("#### 🔹 F 点荷载比对分析")
-            f_cols = st.columns(2)
-            with f_cols[0]: 
-                st.metric(
-                    label="A1. 预测 F 点荷载", 
-                    value=f"{pf:.2f} kN/m²", 
-                    delta=f"绝对误差: {pf - tf:+.2f} kN/m²" if tf > 0 else None, 
-                    delta_color="inverse"
-                )
-                if tf > 0:
-                    st.caption("💡 误差基准：相对基准板试验的理论 F 点荷载")
-            with f_cols[1]: 
-                st.metric(label="A2. 基准板试验的理论 F 点荷载", value=f"{tf:.2f} kN/m²")
+            # 🚀 核心改动：用一个外层的 columns(2) 强行把 F点 和 P点 拉到同一行
+            analysis_row = st.columns(2)
             
-            st.markdown("<br>", unsafe_allow_html=True) # 稍微留一点纵向间距
+            # ==================== 左半边：F 点荷载比对分析 ====================
+            with analysis_row[0]:
+                st.markdown("#### 🔹 F 点荷载比对分析")
+                f_cols = st.columns(2)  # 嵌套内层 2 列
+                with f_cols[0]: 
+                    st.metric(
+                        label="A1. 预测 F 点荷载", 
+                        value=f"{pf:.2f} kN/m²", 
+                        delta=f"绝对误差: {pf - tf:+.2f} kN/m²" if tf > 0 else None, 
+                        delta_color="inverse"
+                    )
+                    if tf > 0:
+                        st.caption("💡 误差基准：相对基准板理论 F 点")
+                with f_cols[1]: 
+                    st.metric(label="A2. 基准板试验理论 F 点", value=f"{tf:.2f} kN/m²")
             
-            # --- 🔹 P 点荷载对比区（改为 2 列布局，释放横向空间） ---
-            st.markdown("#### 🔹 P 点荷载比对分析")
-            p_cols = st.columns(2)
-            with p_cols[0]: 
-                st.metric(
-                    label="B1. 预测 P 点荷载", 
+            # ==================== 右半边：P 点荷载比对分析 ====================
+            with analysis_row[1]:
+                st.markdown("#### 🔹 P 点荷载比对分析")
+                p_cols = st.columns(2)  # 嵌套内层 2 列
+                with p_cols[0]: 
+                    st.metric(
+                        label="B1. 预测 P 点荷载", 
                     value=f"{pp:.2f} kN/m²", 
-                    delta=f"绝对误差: {pp - tp:+.2f} kN/m²" if tp > 0 else None, 
-                    delta_color="inverse"
-                )
-                if tp > 0:
-                    st.caption("💡 误差基准：相对基准板试验的真实 P 点荷载")
-            with p_cols[1]: 
-                st.metric(label="B2. 基准板试验的真实 P 点荷载", value=f"{tp:.2f} kN/m²")
+                        delta=f"绝对误差: {pp - tp:+.2f} kN/m²" if tp > 0 else None, 
+                        delta_color="inverse"
+                    )
+                    if tp > 0:
+                        st.caption("💡 误差基准：相对基准板真实 P 点")
+                with p_cols[1]: 
+                    st.metric(label="B2. 基准板试验真实 P 点", value=f"{tp:.2f} kN/m²")
         else:
             st.warning("时序特征文件缺失（如选择的基准板为SB09，时序特征文件缺失则是正常现象，因为缺乏SB09的破坏试验过程数据）。")
 
