@@ -1326,7 +1326,7 @@ if st.session_state.get('has_predicted', False):
                     if tf > 0:
                         st.caption("误差基准：相对基准板试验的 F 点荷载")
                 with f_cols[1]: 
-                    st.metric(label="A2. 基准板试验的 F 点或者", value=f"{tf:.2f} kN/m²")
+                    st.metric(label="A2. 基准板试验的 F 点荷载", value=f"{tf:.2f} kN/m²")
             
             # ==================== 右主列：P 点荷载比对分析 ====================
             with analysis_row[1]:
