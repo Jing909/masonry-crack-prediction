@@ -1383,10 +1383,11 @@ if st.session_state.get('has_predicted', False):
                     status_text = "破坏荷载加载中"
                 
                 fig_frame = plot_matrix_3d_voxels(
-                    frame_matrix, 
-                    title=f"3D损伤演化模拟 - 推演进度: {int((idx+1)/total_frames*100)}%\n{status_text}: {current_load:.2f} kN/m^2", 
-                    wall_mask=pred_wall_mask, wall_len=wall_len, wall_hit=wall_hit, wall_thick=wall_thick, crop_bounds=pred_crop_bounds
-                )
+            	frame_matrix, 
+            # 🔥 核心修正：利用 $\mathrm{kN/m}^2$ 激活 Matplotlib 数学公式引擎，双大括号用于规避 f-string 语法冲突
+            	title=f"3D损伤演化模拟 - 推演进度: {int((idx+1)/total_frames*100)}%\n{status_text}: {current_load:.2f} $\\mathrm{{kN/m}}^2$", 
+            	wall_mask=pred_wall_mask, wall_len=wall_len, wall_hit=wall_hit, wall_thick=wall_thick,     	crop_bounds=pred_crop_bounds
+            	)
                 anim_placeholder.pyplot(fig_frame)
                 plt.close(fig_frame)  
                 progress_bar.progress((idx + 1) / total_frames)
